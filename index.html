@@ -290,7 +290,12 @@
   <script>
     const WORKER_URL = "https://turbowarp-ai2.noah-72f.workers.dev/"; 
     
-    let currentSystemPrompt = "https://raw.githubusercontent.com/Mrawesome132/turbowarp-ai2/refs/heads/main/config.txt";
+    // Replace with your actual GitHub Raw URL
+    const SYSTEM_PROMPT_FILE_URL = "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPOSITORY/main/system_prompt.txt";
+
+    // Default fallback prompt while downloading from GitHub
+    let currentSystemPrompt = "You are a helpful AI assistant.";
+    
     let username = "User";
     let waitingForNewPersonality = false;
     let userHasScrolledUp = false;
@@ -308,6 +313,24 @@
     window.lastGameHtml = null;
 
     const imageCache = {};
+
+    // FETCH CUSTOM SYSTEM PROMPT FROM GITHUB
+    async function loadSystemPrompt() {
+      try {
+        const response = await fetch(SYSTEM_PROMPT_FILE_URL);
+        if (response.ok) {
+          currentSystemPrompt = await response.text();
+          console.log("[AI Studio] Custom System Prompt successfully loaded from GitHub.");
+        } else {
+          console.warn("[AI Studio] Failed to load prompt from GitHub URL. Using fallback prompt.");
+        }
+      } catch (err) {
+        console.error("[AI Studio] Error loading system prompt from GitHub:", err);
+      }
+    }
+
+    // Call fetch immediately when page script loads
+    loadSystemPrompt();
 
     function handleScroll() {
       const chatBox = document.getElementById("chat-box");
