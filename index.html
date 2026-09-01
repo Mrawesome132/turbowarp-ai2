@@ -295,7 +295,7 @@
     let waitingForNewPersonality = false;
     let userHasScrolledUp = false;
 
-    // CHAT MEMORY ARRAY (PERSISTS CONVERSATION HISTORY)
+    // CHAT MEMORY ARRAY (PERSISTS CONVERSATION HISTORY FOR TEXT ONLY)
     let chatHistory = [];
 
     // GLOBAL VARIABLES TO HOLD THE LATEST RESPONSE DATA
@@ -495,8 +495,11 @@
       let text = textToSend || inputField.value.trim();
       if (!text) return;
 
-      const lowerText = text.toLowerCase();
+      const lowerText = text.toLowerCase().trim();
+      
+      // Explicit Detection Checks
       const isGameRequest = lowerText.startsWith("game") || lowerText.includes("make a game") || lowerText.includes("clone") || lowerText.includes("generate a game");
+      const isImageRequest = /^(draw|generate an image|create an image|make an image|paint|picture of)/i.test(lowerText);
 
       text = text
         .replace(/--pixelart/gi, "in detailed 16-bit pixel art style")
@@ -539,7 +542,8 @@
             message: text,
             systemPrompt: finalSystemPrompt,
             username: username,
-            history: chatHistory // Send complete conversation context
+            isImage: isImageRequest, // Explicit flag sent to Worker
+            history: chatHistory
           })
         });
         const data = await res.json();
@@ -572,7 +576,7 @@
               ${generate15ExportButtons(imageId)}
             </div>`;
 
-          // BROADCAST JSON PAYLOAD TO TURBOWARP
+          // BROADCAST EXACT JSON PAYLOAD TO TURBOWARP
           const imagePayload = JSON.stringify({
             type: "IMAGE",
             url: imageUrl
@@ -648,11 +652,10 @@
             aiOutput = reply.replace(/^```[a-z]*\n?/i, '').replace(/```$/, '').trim();
             chatBox.innerHTML += `<div class="message"><span class="ai">AI:</span> ${escapeHtml(aiOutput)}</div>`;
 
-            // SAVE TO FRONT-END CHAT HISTORY FOR MEMORY
+            // SAVE ONLY TEXT MESSAGES TO CHAT HISTORY MEMORY
             chatHistory.push({ role: "user", content: text });
             chatHistory.push({ role: "assistant", content: aiOutput });
 
-            // Keep memory manageable (last 10 messages max)
             if (chatHistory.length > 10) {
               chatHistory = chatHistory.slice(-10);
             }
