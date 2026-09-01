@@ -258,6 +258,7 @@
   <div class="header">
     <h2>AI Studio (Chat, Image & Game Generator)</h2>
     <div class="header-actions">
+      <button class="action-btn" onclick="clearMemory()">🧹 Clear Memory</button>
       <button class="action-btn" onclick="inspectLastResponse()">💾 Inspect Variable</button>
       <button class="theme-btn" onclick="toggleTheme()">☀️ / 🌙</button>
     </div>
@@ -265,6 +266,7 @@
 
   <div id="chat-box" onscroll="handleScroll()"></div>
 
+  <!-- Mode Toolbar -->
   <div id="style-bar">
     <button class="style-tag" onclick="appendPrompt('game ', 'create a playable 2D/3D browser game of ')">🎮 Make Game</button>
     <button class="style-tag" onclick="appendPrompt('draw ', '--pixelart')">👾 Pixel Art</button>
@@ -274,10 +276,11 @@
   </div>
 
   <div id="input-container">
-    <input type="text" id="user-input" placeholder='Try "game space shooter" or "draw a flying dragon"...' />
+    <input type="text" id="user-input" placeholder='Try "draw a cat" or "remember my favorite color is blue"...' />
     <button class="send-btn" id="send-btn" onclick="sendMessage()">Send</button>
   </div>
 
+  <!-- Lightbox Overlay -->
   <div id="lightbox" class="lightbox-modal">
     <span class="lightbox-close" onclick="closeLightbox()">&times;</span>
     <p style="color: white; margin-bottom: 8px;">Right-click or press & hold image below to save:</p>
@@ -291,6 +294,9 @@
     let username = "User";
     let waitingForNewPersonality = false;
     let userHasScrolledUp = false;
+
+    // CHAT MEMORY ARRAY (PERSISTS CONVERSATION HISTORY)
+    let chatHistory = [];
 
     // GLOBAL VARIABLES TO HOLD THE LATEST RESPONSE DATA
     window.lastResponse = null;
@@ -315,6 +321,11 @@
 
     function toggleTheme() {
       document.body.classList.toggle("light-mode");
+    }
+
+    function clearMemory() {
+      chatHistory = [];
+      alert("AI conversation memory cleared!");
     }
 
     function inspectLastResponse() {
@@ -527,7 +538,8 @@
           body: JSON.stringify({ 
             message: text,
             systemPrompt: finalSystemPrompt,
-            username: username
+            username: username,
+            history: chatHistory // Send complete conversation context
           })
         });
         const data = await res.json();
@@ -536,39 +548,40 @@
           timestamp: new Date().toISOString(),
           userPrompt: text,
           isGame: isGameRequest,
-          isImage: !!data.isImage,
+          isImage: data.type === "IMAGE",
           rawPayload: data
         };
 
         const loadingElem = document.getElementById("loading");
         if (loadingElem) loadingElem.remove();
 
-        if (data.isImage) {
+        if (data.type === "IMAGE" || data.isImage) {
+          const imageUrl = data.url || data.reply;
           const imageId = "img_" + Date.now();
-          imageCache[imageId] = data.reply;
+          imageCache[imageId] = imageUrl;
 
-          window.lastGeneratedImage = data.reply;
+          window.lastGeneratedImage = imageUrl;
           window.lastAiText = "[Image Output]";
           window.lastGameHtml = null;
-          window.lastResponse.imageSrc = data.reply;
+          window.lastResponse.imageSrc = imageUrl;
 
           chatBox.innerHTML += `
             <div class="message">
               <span class="ai">AI Generated Image:</span><br>
-              <img src="${data.reply}" style="max-width:100%; border-radius:8px; margin-top:5px;" alt="AI Image" /><br>
+              <img src="${imageUrl}" style="max-width:100%; border-radius:8px; margin-top:5px;" alt="AI Image" /><br>
               ${generate15ExportButtons(imageId)}
             </div>`;
 
           // BROADCAST JSON PAYLOAD TO TURBOWARP
           const imagePayload = JSON.stringify({
             type: "IMAGE",
-            url: data.reply
+            url: imageUrl
           });
           console.log("[AI Studio] Broadcasting image JSON to TurboWarp:", imagePayload.substring(0, 80) + "...");
           window.parent.postMessage(imagePayload, "*");
 
         } else {
-          const reply = data.reply || data.error || "No response received.";
+          const reply = data.content || data.reply || data.error || "No response received.";
           window.lastAiText = reply;
 
           let aiOutput = "";
@@ -634,6 +647,15 @@
             window.lastGeneratedImage = null;
             aiOutput = reply.replace(/^```[a-z]*\n?/i, '').replace(/```$/, '').trim();
             chatBox.innerHTML += `<div class="message"><span class="ai">AI:</span> ${escapeHtml(aiOutput)}</div>`;
+
+            // SAVE TO FRONT-END CHAT HISTORY FOR MEMORY
+            chatHistory.push({ role: "user", content: text });
+            chatHistory.push({ role: "assistant", content: aiOutput });
+
+            // Keep memory manageable (last 10 messages max)
+            if (chatHistory.length > 10) {
+              chatHistory = chatHistory.slice(-10);
+            }
 
             // BROADCAST PLAIN TEXT JSON TO TURBOWARP
             const textPayload = JSON.stringify({
