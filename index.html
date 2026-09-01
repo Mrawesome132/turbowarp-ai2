@@ -266,7 +266,6 @@
 
   <div id="chat-box" onscroll="handleScroll()"></div>
 
-  <!-- Mode Toolbar -->
   <div id="style-bar">
     <button class="style-tag" onclick="appendPrompt('game ', 'create a playable 2D/3D browser game of ')">🎮 Make Game</button>
     <button class="style-tag" onclick="appendPrompt('draw ', '--pixelart')">👾 Pixel Art</button>
@@ -276,11 +275,10 @@
   </div>
 
   <div id="input-container">
-    <input type="text" id="user-input" placeholder='Try "draw a cat" or "remember my favorite color is blue"...' />
+    <input type="text" id="user-input" placeholder='Try "draw a cat", "add sunglasses", or "remember my favorite color is blue"...' />
     <button class="send-btn" id="send-btn" onclick="sendMessage()">Send</button>
   </div>
 
-  <!-- Lightbox Overlay -->
   <div id="lightbox" class="lightbox-modal">
     <span class="lightbox-close" onclick="closeLightbox()">&times;</span>
     <p style="color: white; margin-bottom: 8px;">Right-click or press & hold image below to save:</p>
@@ -297,6 +295,9 @@
 
     // CHAT MEMORY ARRAY (PERSISTS CONVERSATION HISTORY FOR TEXT ONLY)
     let chatHistory = [];
+    
+    // IMAGE PROMPT MEMORY FOR PROMPT STACKING
+    let lastImagePrompt = "";
 
     // GLOBAL VARIABLES TO HOLD THE LATEST RESPONSE DATA
     window.lastResponse = null;
@@ -325,7 +326,8 @@
 
     function clearMemory() {
       chatHistory = [];
-      alert("AI conversation memory cleared!");
+      lastImagePrompt = "";
+      alert("AI conversation & image prompt memory cleared!");
     }
 
     function inspectLastResponse() {
@@ -499,8 +501,30 @@
       
       // Explicit Detection Checks
       const isGameRequest = lowerText.startsWith("game") || lowerText.includes("make a game") || lowerText.includes("clone") || lowerText.includes("generate a game");
-      const isImageRequest = /^(draw|generate an image|create an image|make an image|paint|picture of)/i.test(lowerText);
+      
+      // Check if user is trying to modify a previous image ("add...", "make it...", "put a...")
+      const isImageAddition = (lowerText.startsWith("add ") || lowerText.startsWith("make it ") || lowerText.startsWith("put ")) && lastImagePrompt !== "";
+      const isImageRequest = /^(draw|generate an image|create an image|make an image|paint|picture of)/i.test(lowerText) || isImageAddition;
 
+      // PROMPT STACKING LOGIC (OPTION 1)
+      if (isImageRequest) {
+        let cleanPrompt = text
+          .replace(/^(draw|generate an image of|create an image of|generate an image|create an image|make an image of|picture of|add|make it|put)\s*/i, "")
+          .trim();
+
+        if (isImageAddition && lastImagePrompt) {
+          // Append new detail to existing prompt context
+          lastImagePrompt = `${lastImagePrompt}, with ${cleanPrompt}`;
+        } else {
+          // New standalone image prompt
+          lastImagePrompt = cleanPrompt;
+        }
+
+        // Format prompt string sent to Worker backend
+        text = `draw ${lastImagePrompt}`;
+      }
+
+      // Convert UI style tags
       text = text
         .replace(/--pixelart/gi, "in detailed 16-bit pixel art style")
         .replace(/--anime/gi, "in vibrant high quality anime style")
@@ -542,7 +566,7 @@
             message: text,
             systemPrompt: finalSystemPrompt,
             username: username,
-            isImage: isImageRequest, // Explicit flag sent to Worker
+            isImage: isImageRequest,
             history: chatHistory
           })
         });
