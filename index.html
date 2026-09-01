@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Studio - Chat, Images & Game Generator</title>
+  <style>
+    :root {
+      --bg-color: #1e1e2e;
+      --chat-bg: #2b2b3d;
+      --text-color: #ffffff;
+      --input-bg: #36364d;
+      --border-color: #4a4a68;
+      --accent-color: #7289da;
+      --ai-text-color: #e0e0e0;
+      --game-bg: #11111b;
+    }
+
+    body.light-mode {
+      --bg-color: #f0f2f5;
+      --chat-bg: #ffffff;
+      --text-color: #1c1e21;
+      --input-bg: #f5f6f7;
+      --border-color: #ccd0d5;
+      --accent-color: #4267b2;
+      --ai-text-color: #2b2b2b;
+      --game-bg: #e4e6eb;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 8px;
+      overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      display: flex;
+      flex-direction: column;
+      transition: background-color 0.2s, color 0.2s;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .header-actions {
+      display: flex;
+      gap: 6px;
+    }
+    h2 { margin: 0; font-size: 1.1rem; }
+    
+    .theme-btn, .action-btn {
+      padding: 4px 10px;
+      font-size: 0.8rem;
+      border-radius: 4px;
+      border: 1px solid var(--border-color);
+      background: var(--input-bg);
+      color: var(--text-color);
+      cursor: pointer;
+    }
+
+    #chat-box {
+      flex: 1;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      padding: 10px;
+      margin-bottom: 8px;
+      background-color: var(--chat-bg);
+      border-radius: 6px;
+    }
+
+    .message { margin-bottom: 12px; word-wrap: break-word; }
+    .user { font-weight: bold; color: var(--accent-color); }
+    .ai { font-weight: bold; color: var(--ai-text-color); }
+
+    /* Toolbar Presets */
+    #style-bar {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+    .style-tag {
+      background: var(--input-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .style-tag:hover { border-color: var(--accent-color); }
+
+    #input-container { display: flex; gap: 8px; }
+    input {
+      flex: 1;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid var(--border-color);
+      background: var(--input-bg);
+      color: var(--text-color);
+      font-size: 0.9rem;
+    }
+    button.send-btn {
+      padding: 10px 16px;
+      border: none;
+      background-color: var(--accent-color);
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    button.send-btn:disabled { background-color: #666; }
+
+    /* Export Grid */
+    .export-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 6px;
+      margin-top: 8px;
+      background: var(--input-bg);
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+    }
+    .export-btn {
+      padding: 5px 8px;
+      font-size: 0.7rem;
+      background-color: var(--chat-bg);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      cursor: pointer;
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .export-btn:hover { border-color: var(--accent-color); }
+
+    /* Lightbox Modal Overlay */
+    .lightbox-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 9999;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+    .lightbox-modal img { max-width: 90%; max-height: 80%; border-radius: 8px; }
+    .lightbox-close {
+      position: absolute; top: 15px; right: 20px;
+      color: white; font-size: 24px; cursor: pointer;
+    }
+
+    /* Game Generator Container */
+    .game-card {
+      margin-top: 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--game-bg);
+      width: 100%;
+      max-width: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .game-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: var(--input-bg);
+      border-bottom: 1px solid var(--border-color);
+    }
+    .game-header h3 {
+      margin: 0;
+      font-size: 0.95rem;
+    }
+    .fullscreen-btn {
+      background: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 4px 10px;
+      font-size: 0.8rem;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .fullscreen-btn:hover {
+      opacity: 0.9;
+    }
+    .instructions-box {
+      padding: 10px 12px;
+      background: rgba(0,0,0,0.15);
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.85rem;
+      line-height: 1.4;
+    }
+    .instructions-box ul {
+      margin: 4px 0 0 0;
+      padding-left: 20px;
+    }
+
+    .iframe-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 100%;
+      aspect-ratio: 16 / 9;
+      max-height: 60vh;
+      background: #000000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .game-iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+    }
+
+    /* Typing Indicator */
+    .typing-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: 6px;
+    }
+    .typing-indicator span {
+      width: 6px; height: 6px;
+      background-color: var(--ai-text-color);
+      border-radius: 50%;
+      animation: pulse 1.4s infinite ease-in-out both;
+    }
+    .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+    .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+
+    @keyframes pulse {
+      0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h2>AI Studio (Chat, Image & Game Generator)</h2>
+    <div class="header-actions">
+      <button class="action-btn" onclick="inspectLastResponse()">💾 Inspect Variable</button>
+      <button class="theme-btn" onclick="toggleTheme()">☀️ / 🌙</button>
+    </div>
+  </div>
+
+  <div id="chat-box" onscroll="handleScroll()"></div>
+
+  <div id="style-bar">
+    <button class="style-tag" onclick="appendPrompt('game ', 'create a playable 2D/3D browser game of ')">🎮 Make Game</button>
+    <button class="style-tag" onclick="appendPrompt('draw ', '--pixelart')">👾 Pixel Art</button>
+    <button class="style-tag" onclick="appendPrompt('draw ', '--anime')">🎨 Anime</button>
+    <button class="style-tag" onclick="appendPrompt('draw ', '--3d')">🎮 3D Render</button>
+    <button class="style-tag" onclick="appendPrompt('draw ', '--cinematic')">🎬 Cinematic</button>
+  </div>
+
+  <div id="input-container">
+    <input type="text" id="user-input" placeholder='Try "game space shooter" or "draw a flying dragon"...' />
+    <button class="send-btn" id="send-btn" onclick="sendMessage()">Send</button>
+  </div>
+
+  <div id="lightbox" class="lightbox-modal">
+    <span class="lightbox-close" onclick="closeLightbox()">&times;</span>
+    <p style="color: white; margin-bottom: 8px;">Right-click or press & hold image below to save:</p>
+    <img id="lightbox-img" src="" alt="Fullscreen Image" />
+  </div>
+
+  <script>
+    const WORKER_URL = "https://turbowarp-ai2.noah-72f.workers.dev/"; 
+    
+    let currentSystemPrompt = "You are a helpful AI assistant.";
+    let username = "User";
+    let waitingForNewPersonality = false;
+    let userHasScrolledUp = false;
+
+    // GLOBAL VARIABLES TO HOLD THE LATEST RESPONSE DATA
+    window.lastResponse = null;
+    window.lastAiText = "";
+    window.lastGeneratedImage = null;
+    window.lastGameHtml = null;
+
+    const imageCache = {};
+
+    function handleScroll() {
+      const chatBox = document.getElementById("chat-box");
+      const isAtBottom = chatBox.scrollHeight - chatBox.clientHeight <= chatBox.scrollTop + 30;
+      userHasScrolledUp = !isAtBottom;
+    }
+
+    function autoScroll() {
+      if (!userHasScrolledUp) {
+        const chatBox = document.getElementById("chat-box");
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+    }
+
+    function toggleTheme() {
+      document.body.classList.toggle("light-mode");
+    }
+
+    function inspectLastResponse() {
+      if (!window.lastResponse) {
+        alert("No response saved in variable yet. Send a prompt first!");
+        return;
+      }
+      console.log("Current window.lastResponse variable:", window.lastResponse);
+      prompt("Saved Response Variable (window.lastResponse):", JSON.stringify(window.lastResponse, null, 2));
+    }
+
+    function appendPrompt(prefix, tag) {
+      const inputField = document.getElementById("user-input");
+      let currentVal = inputField.value.trim();
+
+      if (!currentVal.toLowerCase().startsWith(prefix.trim())) {
+        currentVal = `${prefix}${currentVal}`;
+      }
+
+      if (tag && !currentVal.includes(tag)) {
+        currentVal = `${currentVal} ${tag}`;
+      }
+
+      inputField.value = currentVal.trim();
+      inputField.focus();
+    }
+
+    function launchFullscreen(iframeId) {
+      const iframe = document.getElementById(iframeId);
+      if (!iframe) return;
+
+      if (iframe.requestFullscreen) {
+        iframe.requestFullscreen();
+      } else if (iframe.webkitRequestFullscreen) {
+        iframe.webkitRequestFullscreen();
+      } else if (iframe.msRequestFullscreen) {
+        iframe.msRequestFullscreen();
+      }
+    }
+
+    // EXPORT WORKAROUNDS
+    function export1_Lightbox(id) {
+      document.getElementById('lightbox-img').src = imageCache[id];
+      document.getElementById('lightbox').style.display = 'flex';
+    }
+    function closeLightbox() {
+      document.getElementById('lightbox').style.display = 'none';
+    }
+
+    function export2_ParentLoc(id) {
+      try { parent.location.href = imageCache[id]; } 
+      catch(e) { window.open(imageCache[id], '_blank'); }
+    }
+
+    function export3_CanvasBlob(id) {
+      const img = new Image();
+      img.src = imageCache[id];
+      img.onload = () => {
+        const cvs = document.createElement('canvas');
+        cvs.width = img.width; cvs.height = img.height;
+        const ctx = cvs.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        cvs.toBlob(blob => {
+          const u = URL.createObjectURL(blob);
+          const a = document.createElement('a'); a.href = u; a.download = 'ai-image.png'; a.click();
+        });
+      };
+    }
+
+    function export4_Textarea(id) {
+      const b64 = imageCache[id];
+      prompt("Copy this raw Base64 string and paste into your browser bar:", b64);
+    }
+
+    function export5_QRCode(id) {
+      const url = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(imageCache[id].substring(0, 1000))}`;
+      window.open(url, '_blank');
+    }
+
+    function export6_CloudUpload(id) {
+      navigator.clipboard.writeText(imageCache[id]);
+      alert("Image payload copied to clipboard for direct remote upload!");
+    }
+
+    function export7_PostMessage(id) {
+      window.parent.postMessage(JSON.stringify({ type: 'IMAGE', url: imageCache[id] }), '*');
+      alert("Sent image save request to host window via postMessage!");
+    }
+
+    function export8_EnableDrag(imgElem) {
+      imgElem.draggable = true;
+      alert("Drag enabled! Click and drag the image directly onto your desktop or folder.");
+    }
+
+    async function export9_WebShare(id) {
+      if (navigator.share) {
+        try {
+          const res = await fetch(imageCache[id]);
+          const blob = await res.blob();
+          const file = new File([blob], 'ai-image.png', { type: 'image/png' });
+          await navigator.share({ files: [file], title: 'AI Image' });
+        } catch(e) { alert("Web Share not supported in this iframe context."); }
+      } else { alert("Web Share API unavailable."); }
+    }
+
+    function export10_LocationStream(id) {
+      window.location.href = imageCache[id];
+    }
+
+    function export11_BlobHTML(id) {
+      const html = `<html><body style="margin:0;background:#111;display:flex;justify-content:center;align-items:center;height:100vh;"><img src="${imageCache[id]}" style="max-width:90%;"><p style="color:#fff;position:fixed;top:10px;">Right-click to save image</p></body></html>`;
+      const blob = new Blob([html], { type: 'text/html' });
+      window.open(URL.createObjectURL(blob), '_blank');
+    }
+
+    function export12_SVGWrapper(id) {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><image href="${imageCache[id]}" width="512" height="512"/></svg>`;
+      const blob = new Blob([svg], { type: 'image/svg+xml' });
+      window.open(URL.createObjectURL(blob), '_blank');
+    }
+
+    function export13_AutoSelect(imgElem) {
+      const range = document.createRange();
+      range.selectNode(imgElem);
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+      alert("Image element selected! Press Ctrl+C / Cmd+C to copy.");
+    }
+
+    function export14_EmailLink(id) {
+      window.location.href = `mailto:?subject=AI Generated Image&body=Here is your image base64 code: ${encodeURIComponent(imageCache[id].substring(0, 500))}...`;
+    }
+
+    function export15_OSInstructions() {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const shortcut = isMac ? "Cmd + Shift + 4" : "Win + Shift + S";
+      alert(`Press [ ${shortcut} ] to take a crisp snippet screenshot of the image!`);
+    }
+
+    function generate15ExportButtons(id) {
+      return `
+        <div class="export-grid">
+          <button class="export-btn" onclick="export1_Lightbox('${id}')">1. 🔍 Lightbox</button>
+          <button class="export-btn" onclick="export2_ParentLoc('${id}')">2. ↗️ Break Frame</button>
+          <button class="export-btn" onclick="export3_CanvasBlob('${id}')">3. 🎨 Canvas Blob</button>
+          <button class="export-btn" onclick="export4_Textarea('${id}')">4. 📝 Data String</button>
+          <button class="export-btn" onclick="export5_QRCode('${id}')">5. 📱 QR Code</button>
+          <button class="export-btn" onclick="export6_CloudUpload('${id}')">6. 📋 Copy Code</button>
+          <button class="export-btn" onclick="export7_PostMessage('${id}')">7. 💬 PostMessage</button>
+          <button class="export-btn" onclick="export8_EnableDrag(this.parentElement.parentElement.querySelector('img'))">8. 🖱️ Drag Mode</button>
+          <button class="export-btn" onclick="export9_WebShare('${id}')">9. 📲 Web Share</button>
+          <button class="export-btn" onclick="export10_LocationStream('${id}')">10. ⚡ Direct Stream</button>
+          <button class="export-btn" onclick="export11_BlobHTML('${id}')">11. 🌐 Blob Document</button>
+          <button class="export-btn" onclick="export12_SVGWrapper('${id}')">12. 🖼️ SVG Wrap</button>
+          <button class="export-btn" onclick="export13_AutoSelect(this.parentElement.parentElement.querySelector('img'))">13. 🎯 Auto Select</button>
+          <button class="export-btn" onclick="export14_EmailLink('${id}')">14. ✉️ Email Link</button>
+          <button class="export-btn" onclick="export15_OSInstructions()">15. ✂️ Screenshot Guide</button>
+        </div>`;
+    }
+
+    // CHAT & GAME GENERATOR MAIN LOGIC
+    async function sendMessage(textToSend) {
+      const inputField = document.getElementById("user-input");
+      const sendBtn = document.getElementById("send-btn");
+      const chatBox = document.getElementById("chat-box");
+      
+      let text = textToSend || inputField.value.trim();
+      if (!text) return;
+
+      const lowerText = text.toLowerCase();
+      const isGameRequest = lowerText.startsWith("game") || lowerText.includes("make a game") || lowerText.includes("clone") || lowerText.includes("generate a game");
+
+      text = text
+        .replace(/--pixelart/gi, "in detailed 16-bit pixel art style")
+        .replace(/--anime/gi, "in vibrant high quality anime style")
+        .replace(/--3d/gi, "in realistic 3D game engine render style")
+        .replace(/--cinematic/gi, "cinematic lighting, photorealistic 8k photo");
+
+      chatBox.innerHTML += `<div class="message"><span class="user">${escapeHtml(username)}:</span> ${escapeHtml(text)}</div>`;
+      inputField.value = "";
+      sendBtn.disabled = true;
+
+      if (waitingForNewPersonality) {
+        currentSystemPrompt = text;
+        waitingForNewPersonality = false;
+        chatBox.innerHTML += `<div class="message"><span class="ai">AI:</span> Updated personality.</div>`;
+        sendBtn.disabled = false;
+        autoScroll();
+        return;
+      }
+
+      chatBox.innerHTML += `
+        <div class="message" id="loading">
+          <span class="ai">AI:</span>
+          <span class="typing-indicator">
+            <span></span><span></span><span></span>
+          </span>
+        </div>`;
+      autoScroll();
+
+      try {
+        let finalSystemPrompt = currentSystemPrompt;
+        if (isGameRequest) {
+          finalSystemPrompt = "You are a JavaScript game developer. Write a playable HTML5 Canvas game. CRITICAL REQUIREMENT: Make sure the canvas automatically fits 100% width and height of the window (use CSS: html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; } canvas { width:100%; height:100%; display:block; }). BEFORE the code, write '### INSTRUCTIONS' explaining the objective and controls. THEN write a COMPLETE single-file HTML document starting with <!DOCTYPE html>.";
+        }
+
+        const res = await fetch(WORKER_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            message: text,
+            systemPrompt: finalSystemPrompt,
+            username: username
+          })
+        });
+        const data = await res.json();
+        
+        window.lastResponse = {
+          timestamp: new Date().toISOString(),
+          userPrompt: text,
+          isGame: isGameRequest,
+          isImage: !!data.isImage,
+          rawPayload: data
+        };
+
+        const loadingElem = document.getElementById("loading");
+        if (loadingElem) loadingElem.remove();
+
+        if (data.isImage) {
+          const imageId = "img_" + Date.now();
+          imageCache[imageId] = data.reply;
+
+          window.lastGeneratedImage = data.reply;
+          window.lastAiText = "[Image Output]";
+          window.lastGameHtml = null;
+          window.lastResponse.imageSrc = data.reply;
+
+          chatBox.innerHTML += `
+            <div class="message">
+              <span class="ai">AI Generated Image:</span><br>
+              <img src="${data.reply}" style="max-width:100%; border-radius:8px; margin-top:5px;" alt="AI Image" /><br>
+              ${generate15ExportButtons(imageId)}
+            </div>`;
+
+          // BROADCAST JSON PAYLOAD TO TURBOWARP
+          const imagePayload = JSON.stringify({
+            type: "IMAGE",
+            url: data.reply
+          });
+          console.log("[AI Studio] Broadcasting image JSON to TurboWarp:", imagePayload.substring(0, 80) + "...");
+          window.parent.postMessage(imagePayload, "*");
+
+        } else {
+          const reply = data.reply || data.error || "No response received.";
+          window.lastAiText = reply;
+
+          let aiOutput = "";
+          if (isGameRequest || reply.includes("<!DOCTYPE html>") || reply.includes("<canvas") || reply.includes("```html")) {
+            let instructionsText = "Use keyboard/mouse controls to play.";
+            let cleanHtml = reply;
+
+            if (reply.includes("<!DOCTYPE html>")) {
+              const htmlIndex = reply.indexOf("<!DOCTYPE html>");
+              const rawInstructions = reply.substring(0, htmlIndex).trim();
+              cleanHtml = reply.substring(htmlIndex).replace(/```html/gi, '').replace(/```/g, '').trim();
+
+              if (rawInstructions.length > 5) {
+                instructionsText = escapeHtml(rawInstructions)
+                  .replace(/### Instructions/gi, '')
+                  .replace(/### INSTRUCTIONS/gi, '')
+                  .replace(/\n/g, '<br>');
+              }
+            } else {
+              cleanHtml = reply.replace(/```html/gi, '').replace(/```/g, '').trim();
+            }
+
+            window.lastGameHtml = cleanHtml;
+            window.lastGeneratedImage = null;
+            window.lastResponse.gameHtml = cleanHtml;
+            window.lastResponse.instructions = instructionsText;
+            aiOutput = cleanHtml;
+
+            const gameBlob = new Blob([cleanHtml], { type: 'text/html' });
+            const gameUrl = URL.createObjectURL(gameBlob);
+            const iframeId = "game_iframe_" + Date.now();
+
+            chatBox.innerHTML += `
+              <div class="message">
+                <span class="ai">🎮 AI Generated Game:</span>
+                <div class="game-card">
+                  <div class="game-header">
+                    <h3>🕹️ Playable Game View</h3>
+                    <button class="fullscreen-btn" onclick="launchFullscreen('${iframeId}')">
+                      ⛶ Fullscreen
+                    </button>
+                  </div>
+                  <div class="instructions-box">
+                    <strong>📖 Instructions & Controls:</strong>
+                    <div>${instructionsText}</div>
+                  </div>
+                  <div class="iframe-wrapper">
+                    <iframe id="${iframeId}" class="game-iframe" src="${gameUrl}" allowfullscreen="true"></iframe>
+                  </div>
+                </div>
+              </div>`;
+
+            // BROADCAST GAME JSON TO TURBOWARP
+            const gamePayload = JSON.stringify({
+              type: "GAME",
+              content: aiOutput,
+              instructions: instructionsText
+            });
+            window.parent.postMessage(gamePayload, "*");
+
+          } else {
+            window.lastGameHtml = null;
+            window.lastGeneratedImage = null;
+            aiOutput = reply.replace(/^```[a-z]*\n?/i, '').replace(/```$/, '').trim();
+            chatBox.innerHTML += `<div class="message"><span class="ai">AI:</span> ${escapeHtml(aiOutput)}</div>`;
+
+            // BROADCAST PLAIN TEXT JSON TO TURBOWARP
+            const textPayload = JSON.stringify({
+              type: "TEXT",
+              content: aiOutput
+            });
+            console.log("[AI Studio] Broadcasting text JSON to TurboWarp:", textPayload.substring(0, 80) + "...");
+            window.parent.postMessage(textPayload, "*");
+          }
+        }
+
+      } catch (err) {
+        const loadingElem = document.getElementById("loading");
+        if (loadingElem) loadingElem.remove();
+
+        window.lastResponse = { error: err.message };
+        chatBox.innerHTML += `<div class="message"><span class="ai">AI:</span> Error connecting to backend worker.</div>`;
+      }
+
+      sendBtn.disabled = false;
+      autoScroll();
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    window.addEventListener("message", (event) => {
+      try {
+        const parsed = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+        if (parsed && parsed.type === "set_username" && parsed.username) {
+          username = parsed.username;
+          return;
+        }
+      } catch(e) {}
+
+      if (typeof event.data === "string" && event.data.length > 0) {
+        sendMessage(event.data);
+      }
+    });
+
+    document.getElementById("user-input").addEventListener("keypress", function(e) {
+      if (e.key === "Enter") sendMessage();
+    });
+  </script>
+
+</body>
+</html>
