@@ -266,6 +266,7 @@
 
   <div id="chat-box" onscroll="handleScroll()"></div>
 
+  <!-- Mode Toolbar -->
   <div id="style-bar">
     <button class="style-tag" onclick="appendPrompt('game ', 'create a playable 2D/3D browser game of ')">🎮 Make Game</button>
     <button class="style-tag" onclick="appendPrompt('draw ', '--pixelart')">👾 Pixel Art</button>
@@ -275,10 +276,11 @@
   </div>
 
   <div id="input-container">
-    <input type="text" id="user-input" placeholder='Try "draw a cat", "add sunglasses", or "remember my favorite color is blue"...' />
+    <input type="text" id="user-input" placeholder='Try "draw a dog", "make it ride a skateboard", or "create a game"...' />
     <button class="send-btn" id="send-btn" onclick="sendMessage()">Send</button>
   </div>
 
+  <!-- Lightbox Overlay -->
   <div id="lightbox" class="lightbox-modal">
     <span class="lightbox-close" onclick="closeLightbox()">&times;</span>
     <p style="color: white; margin-bottom: 8px;">Right-click or press & hold image below to save:</p>
@@ -499,28 +501,33 @@
 
       const lowerText = text.toLowerCase().trim();
       
-      // Explicit Detection Checks
-      const isGameRequest = lowerText.startsWith("game") || lowerText.includes("make a game") || lowerText.includes("clone") || lowerText.includes("generate a game");
-      
-      // Check if user is trying to modify a previous image ("add...", "make it...", "put a...")
-      const isImageAddition = (lowerText.startsWith("add ") || lowerText.startsWith("make it ") || lowerText.startsWith("put ")) && lastImagePrompt !== "";
+      // 1. Check if user is modifying/adding to a previous image
+      const modificationTriggers = ["add ", "make it ", "put ", "give it ", "with "];
+      const isImageAddition = lastImagePrompt !== "" && modificationTriggers.some(trigger => lowerText.startsWith(trigger));
+
+      // 2. Image request check
       const isImageRequest = /^(draw|generate an image|create an image|make an image|paint|picture of)/i.test(lowerText) || isImageAddition;
 
-      // PROMPT STACKING LOGIC (OPTION 1)
+      // 3. Stricter Game Check (prevents "make it..." from triggering a game when editing an image)
+      const isGameRequest = !isImageRequest && (
+        lowerText.startsWith("game") || 
+        lowerText.includes("make a game") || 
+        lowerText.includes("create a game") || 
+        lowerText.includes("generate a game")
+      );
+
+      // 4. PROMPT STACKING LOGIC
       if (isImageRequest) {
         let cleanPrompt = text
-          .replace(/^(draw|generate an image of|create an image of|generate an image|create an image|make an image of|picture of|add|make it|put)\s*/i, "")
+          .replace(/^(draw|generate an image of|create an image of|generate an image|create an image|make an image of|picture of|add|make it|put|give it)\s*/i, "")
           .trim();
 
         if (isImageAddition && lastImagePrompt) {
-          // Append new detail to existing prompt context
-          lastImagePrompt = `${lastImagePrompt}, with ${cleanPrompt}`;
+          lastImagePrompt = `${lastImagePrompt}, ${cleanPrompt}`;
         } else {
-          // New standalone image prompt
           lastImagePrompt = cleanPrompt;
         }
 
-        // Format prompt string sent to Worker backend
         text = `draw ${lastImagePrompt}`;
       }
 
